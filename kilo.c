@@ -1,37 +1,56 @@
+
+//includes
 #include <ctype.h>
 #include <stdio.h>
 #include <unistd.h> //provides access to various POSIX (Portable Operating System Interface) system calls and constants.
 #include <termios.h> 
 #include <stdlib.h>
+#include <errno.h>
 
+
+//data
 struct termios orig_termios;
 
+//terminal
+void die(const char *s) {
+  perror(s);
+  exit(1);
+}
+
 void disableRawMode(){
-    tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios); //set the terminal attributes of stdin to the original values
+  if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios) == -1)
+    die("tcsetattr");
 }
 
 
 void enableRawMode(){   
-     tcgetattr(STDIN_FILENO, &orig_termios); 
+  if (tcgetattr(STDIN_FILENO, &orig_termios) == -1) die("tcgetattr");
      atexit(disableRawMode);
      struct termios raw = orig_termios;
-     raw.c_iflag &= ~(ICRNL | IXON);
+  raw.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
+       raw.c_oflag &= ~(OPOST);
+         raw.c_cflag |= (CS8);
      raw.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
-     tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
+       raw.c_cc[VMIN] = 0;
+       raw.c_cc[VTIME] = 1;
+
+  if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1) die("tcsetattr");
     }
 
-
-int main(){
+    //init
+    int main(){
     enableRawMode(); //enable raw mode for terminal
-
-    char c;
     //reading the keyword inputs, one byte at a time and stores in c variable
-    while(read(STDIN_FILENO, &c, 1) == 1 && c != 'q'){ //and if the last key is q then "quit"
-     if (iscntrl(c)) { //if it is a non printiable charactor then this 
-      printf("%d\n", c);
-    } else { //otherwise this
-      printf("%d ('%c')\n", c, c);
-    }
-}
+
+     while (1) {
+     char c = '\0';
+    if (read(STDIN_FILENO, &c, 1) == -1 && errno != EAGAIN) die("read");
+        if (iscntrl(c)) { //if it is a non printiable charactor then this 
+      printf("%d\r\n", c);
+      } else { //otherwise this
+      printf("%d ('%c')\r\n", c, c);
+     }
+        if (c == 'q') break; //for quit
+     }
       return 0;
-}
+     }
