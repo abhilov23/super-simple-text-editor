@@ -1,3 +1,5 @@
+#include <ctype.h>
+#include <stdio.h>
 #include <unistd.h> //provides access to various POSIX (Portable Operating System Interface) system calls and constants.
 #include <termios.h> 
 #include <stdlib.h>
@@ -13,7 +15,8 @@ void enableRawMode(){
      tcgetattr(STDIN_FILENO, &orig_termios); 
      atexit(disableRawMode);
      struct termios raw = orig_termios;
-     raw.c_lflag &= ~(ECHO | ICANON);
+     raw.c_iflag &= ~(ICRNL | IXON);
+     raw.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
      tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
     }
 
@@ -23,6 +26,12 @@ int main(){
 
     char c;
     //reading the keyword inputs, one byte at a time and stores in c variable
-    while(read(STDIN_FILENO, &c, 1) == 1 && c != 'q'); //and if the last key is q then "quit"
-    return 0;
+    while(read(STDIN_FILENO, &c, 1) == 1 && c != 'q'){ //and if the last key is q then "quit"
+     if (iscntrl(c)) { //if it is a non printiable charactor then this 
+      printf("%d\n", c);
+    } else { //otherwise this
+      printf("%d ('%c')\n", c, c);
+    }
+}
+      return 0;
 }
